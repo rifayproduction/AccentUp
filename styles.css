@@ -34,7 +34,7 @@ body {
   background:
     linear-gradient(180deg, rgba(37, 37, 37, 0.18), rgba(37, 37, 37, 0.76)),
     radial-gradient(circle at 50% 10%, rgba(255, 211, 77, 0.13), transparent 30%),
-    url("assets/accent-constellations.png") center top / cover no-repeat,
+    url("assets/accent-constellations.webp") center top / cover no-repeat,
     var(--bg);
   color: var(--text);
 }
@@ -555,6 +555,22 @@ body[data-screen="result"] .screen {
   background: linear-gradient(90deg, var(--accent), #ffe47d);
   box-shadow: 0 0 18px rgba(255, 211, 77, 0.28);
   transition: width 260ms ease;
+}
+
+.quiz-counter {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.back-button.quiz-back {
+  position: static;
+  top: auto;
+  right: auto;
+  width: 40px;
+  height: 40px;
 }
 
 .quiz-favorite {
