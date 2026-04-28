@@ -7,7 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@500;600;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=51">
+  <link rel="preload" as="image" href="assets/accent-constellations.webp" type="image/webp">
+  <link rel="stylesheet" href="styles.css?v=52">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
@@ -122,12 +123,13 @@
     <section class="screen screen-quiz" data-screen="quiz" hidden>
       <div class="quiz-top">
         <div class="quiz-head">
-          <span id="quizCounter">1 из 10</span>
+          <button class="back-button quiz-back" id="quizBackButton" type="button" aria-label="Вернуться на главный экран">&#8617;</button>
           <button class="favorite-button quiz-favorite" id="quizFavoriteButton" type="button" aria-label="Добавить в избранное">★</button>
         </div>
         <div class="quiz-progress" id="quizProgress" role="progressbar" aria-label="Прогресс теста" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <span id="quizProgressBar"></span>
         </div>
+        <span class="quiz-counter" id="quizCounter">1 из 10</span>
       </div>
 
       <div class="quiz-card">
@@ -260,7 +262,7 @@
     </button>
   </nav>
 
-  <script src="data/words.js?v=51"></script>
-  <script src="app.js?v=51"></script>
+  <script src="data/words.js?v=52"></script>
+  <script src="app.js?v=52"></script>
 </body>
 </html>
