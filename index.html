@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>AccentUp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@500;600;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=51">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="screen screen-home active" data-screen="test">
+      <button class="info-button" id="infoButton" type="button" aria-label="О приложении">
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M12 17v-6" />
+          <path d="M12 7.2h.01" />
+          <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
+        </svg>
+      </button>
+      <div class="hero" aria-label="Главный экран">
+        <h1 class="brand-title">Accent<span>Up</span></h1>
+        <p>Ударения русского языка</p>
+      </div>
+
+      <div class="center-stage">
+        <div class="mode-select" id="modeSelect">
+          <button class="mode-trigger" id="modeTrigger" type="button" aria-expanded="false">
+            <span class="mode-trigger-copy">
+              <span class="mode-caption">Режим тренировки</span>
+              <span class="mode-current">
+                <span class="mode-current-icon" id="modeIcon" aria-hidden="true"></span>
+                <span class="mode-current-text">
+                  <span id="modeLabel">ЕГЭ слова</span>
+                  <small id="modeMeta">Вся база слов</small>
+                </span>
+              </span>
+            </span>
+            <span class="mode-arrow" aria-hidden="true">⌄</span>
+          </button>
+          <div class="mode-menu" id="modeMenu" aria-hidden="true">
+            <div class="mode-menu-inner">
+            <button class="mode-option active" type="button" data-mode="all">
+              <span class="mode-option-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M6.5 4.5h8.2L18 7.8v11.7H6.5v-15Z" />
+                  <path d="M14.5 4.5v3.5H18" />
+                  <path d="M9 12h6" />
+                  <path d="m9 16 1.4 1.4L14 13.8" />
+                </svg>
+              </span>
+              <span class="mode-option-text">
+                <strong>ЕГЭ слова</strong>
+                <small>Вся база ЕГЭ</small>
+              </span>
+              <span class="mode-badge" id="egeWordsCount">0</span>
+            </button>
+            <button class="mode-option" type="button" data-mode="mistakes">
+              <span class="mode-option-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M12 4.2 21 19H3L12 4.2Z" />
+                  <path d="M12 9v5" />
+                  <path d="M12 17.2h.01" />
+                </svg>
+              </span>
+              <span class="mode-option-text">
+                <strong>Мои ошибки</strong>
+                <small>Слова, где ты ошибался</small>
+              </span>
+              <span class="mode-badge" id="mistakesCount">0</span>
+            </button>
+            <button class="mode-option" type="button" data-mode="favorites">
+              <span class="mode-option-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false" class="bookmark-icon">
+                  <path d="M6 4.8C6 3.8 6.8 3 7.8 3h8.4c1 0 1.8.8 1.8 1.8V21l-6-3.4L6 21V4.8Z" />
+                  <path d="m12 7.1 1.15 2.33 2.57.37-1.86 1.82.44 2.56L12 12.96l-2.3 1.22.44-2.56L8.28 9.8l2.57-.37L12 7.1Z" />
+                </svg>
+              </span>
+              <span class="mode-option-text">
+                <strong>Избранное</strong>
+                <small>Только сохраненные слова</small>
+              </span>
+              <span class="mode-badge" id="favoritesCount">0</span>
+            </button>
+            <button class="mode-option" type="button" data-mode="allWords">
+              <span class="mode-option-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M6 5.5h10.5A1.5 1.5 0 0 1 18 7v11.5H7.5A2.5 2.5 0 0 1 5 16V6.5a1 1 0 0 1 1-1Z" />
+                  <path d="M8 5.5V18" />
+                  <path d="M10.5 9h4.5" />
+                  <path d="M10.5 12h3.5" />
+                  <path d="M18 8h1a1 1 0 0 1 1 1v11H8" />
+                </svg>
+              </span>
+              <span class="mode-option-text">
+                <strong>Все слова</strong>
+                <small>ЕГЭ и сложные ударения</small>
+              </span>
+              <span class="mode-badge" id="allWordsCount">0</span>
+            </button>
+            </div>
+          </div>
+        </div>
+        <div class="quiz-length" aria-label="Количество слов в тесте">
+          <span class="quiz-length-copy">
+            <span>Слов в тесте</span>
+            <small>Выбери длину</small>
+          </span>
+          <span class="quiz-length-options">
+            <button class="quiz-length-option" type="button" data-quiz-length="5">5</button>
+            <button class="quiz-length-option active" type="button" data-quiz-length="10">10</button>
+            <button class="quiz-length-option" type="button" data-quiz-length="20">20</button>
+          </span>
+        </div>
+        <button class="start-button" id="startTestButton" type="button">Начать тест</button>
+        <p class="mode-hint" id="modeHint"></p>
+      </div>
+    </section>
+
+    <section class="screen screen-quiz" data-screen="quiz" hidden>
+      <div class="quiz-top">
+        <div class="quiz-head">
+          <span id="quizCounter">1 из 10</span>
+          <button class="favorite-button quiz-favorite" id="quizFavoriteButton" type="button" aria-label="Добавить в избранное">★</button>
+        </div>
+        <div class="quiz-progress" id="quizProgress" role="progressbar" aria-label="Прогресс теста" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <span id="quizProgressBar"></span>
+        </div>
+      </div>
+
+      <div class="quiz-card">
+        <div class="answer-grid" id="answerGrid"></div>
+      </div>
+    </section>
+
+    <section class="screen screen-result" data-screen="result" hidden>
+      <div class="result-card">
+        <button class="back-button" id="resultBackButton" type="button" aria-label="Вернуться на главный экран">↩</button>
+        <p class="result-label">Результат</p>
+        <h2 class="result-verdict" id="resultVerdict">Хороший старт</h2>
+        <div class="result-score" id="resultScore">0 из 10</div>
+        <p id="resultDetails">Ошибок: 0</p>
+        <div class="result-actions">
+          <button class="secondary-button" id="repeatMistakesButton" type="button">Повторить ошибки</button>
+          <button class="start-button compact" id="restartTestButton" type="button">Еще тест</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen screen-dictionary" data-screen="dictionary" hidden>
+      <div class="dictionary-header">
+        <label class="search-field">
+          <span>Поиск</span>
+          <input id="dictionarySearch" type="search" placeholder="Введите слово" autocomplete="off">
+        </label>
+        <div class="dictionary-filter" aria-label="Фильтр словаря">
+          <button class="active" type="button" data-dictionary-filter="all">Все</button>
+          <button type="button" data-dictionary-filter="ege">ЕГЭ</button>
+          <button type="button" data-dictionary-filter="extra">Сложные</button>
+        </div>
+      </div>
+
+      <div class="dictionary-intro" id="dictionaryIntro">
+        <div class="dictionary-empty-card">
+          <span class="empty-icon dictionary-empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M4.5 5.5A2.5 2.5 0 0 1 7 3h12v16H7a2.5 2.5 0 0 0-2.5 2.5v-16Z" />
+              <path d="M7 19h12" />
+              <path d="M8 7h7" />
+              <path d="M8 10h6" />
+            </svg>
+          </span>
+          <strong>Найди слово</strong>
+          <span>Введи часть слова, чтобы увидеть правильное ударение и подсказки для сложных слов.</span>
+        </div>
+        <div class="popular-words">
+          <p>Популярные слова</p>
+          <div class="popular-word-list">
+            <button type="button" data-search-word="звонит">звони́т</button>
+            <button type="button" data-search-word="каталог">катало́г</button>
+            <button type="button" data-search-word="жалюзи">жалюзи́</button>
+            <button type="button" data-search-word="торты">то́рты</button>
+            <button type="button" data-search-word="квартал">кварта́л</button>
+            <button type="button" data-search-word="свекла">свёкла</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="dictionary-summary" id="dictionarySummary" hidden></p>
+      <div class="dictionary-results" id="dictionaryResults" hidden></div>
+    </section>
+
+    <section class="screen screen-favorites" data-screen="favorites" hidden>
+      <div class="favorites-header">
+        <h1>Избранное</h1>
+        <p id="favoritesSummary">0 слов сохранено</p>
+        <button class="start-button favorites-start" id="startFavoritesButton" type="button">Тренировать избранное</button>
+      </div>
+      <div class="favorites-results" id="favoritesResults"></div>
+    </section>
+
+    <section class="screen screen-info" data-screen="info" hidden>
+      <div class="info-card">
+        <button class="back-button info-back" id="infoBackButton" type="button" aria-label="Вернуться на главный экран">↩</button>
+        <p class="info-label">О приложении</p>
+        <h1 class="brand-title">Accent<span>Up</span></h1>
+        <div class="info-text">
+          <p>Здесь вы можете закрепить ударения на более чем 1000 слов. Приложение будет полезно школьникам, которые готовятся к ОГЭ или ЕГЭ по русскому языку, а также всем, кто хочет увереннее запоминать правильное произношение.</p>
+          <p>В любой момент слово можно добавить в избранное и практиковать отдельным режимом. Также есть тренировка ошибок: приложение запоминает сложные слова и помогает постепенно оттачивать именно их.</p>
+          <p>Выбирайте режим, настраивайте количество слов в тесте и возвращайтесь к практике каждый день. Короткие регулярные тренировки помогают быстрее закреплять ударения и меньше путаться в похожих вариантах.</p>
+        </div>
+        <p class="info-signature">rifayprod</p>
+      </div>
+    </section>
+  </main>
+
+  <div class="word-info-sheet" id="wordInfoSheet" hidden>
+    <div class="word-info-card">
+      <button class="word-info-close" id="wordInfoClose" type="button" aria-label="Закрыть подсказку">×</button>
+      <p>Подсказка</p>
+      <h2 id="wordInfoTitle">жалюзи́</h2>
+      <span id="wordInfoText"></span>
+    </div>
+  </div>
+
+  <nav class="tab-bar" aria-label="Навигация">
+    <button class="tab-item active" type="button" data-tab="test">
+      <span class="tab-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M9 5h6" />
+          <path d="M9 3h6a2 2 0 0 1 2 2v1H7V5a2 2 0 0 1 2-2Z" />
+          <path d="M7 6H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-1" />
+          <path d="m8 13 2 2 4-5" />
+          <path d="M8 18h8" />
+        </svg>
+      </span>
+      <span>Тест</span>
+    </button>
+    <button class="tab-item" type="button" data-tab="favorites">
+      <span class="tab-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false" class="bookmark-icon">
+          <path d="M6 4.8C6 3.8 6.8 3 7.8 3h8.4c1 0 1.8.8 1.8 1.8V21l-6-3.4L6 21V4.8Z" />
+          <path d="m12 7.1 1.15 2.33 2.57.37-1.86 1.82.44 2.56L12 12.96l-2.3 1.22.44-2.56L8.28 9.8l2.57-.37L12 7.1Z" />
+        </svg>
+      </span>
+      <span>Избранное</span>
+    </button>
+    <button class="tab-item" type="button" data-tab="dictionary">
+      <span class="tab-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M4.5 5.5A2.5 2.5 0 0 1 7 3h12v16H7a2.5 2.5 0 0 0-2.5 2.5v-16Z" />
+          <path d="M7 19h12" />
+          <path d="M8 7h7" />
+          <path d="M8 10h6" />
+        </svg>
+      </span>
+      <span>Словарь</span>
+    </button>
+  </nav>
+
+  <script src="data/words.js?v=51"></script>
+  <script src="app.js?v=51"></script>
+</body>
+</html>
