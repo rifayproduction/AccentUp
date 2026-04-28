@@ -68,6 +68,7 @@ const startFavoritesButton = document.getElementById("startFavoritesButton");
 const quizCounter = document.getElementById("quizCounter");
 const quizProgress = document.getElementById("quizProgress");
 const quizProgressBar = document.getElementById("quizProgressBar");
+const quizBackButton = document.getElementById("quizBackButton");
 const quizFavoriteButton = document.getElementById("quizFavoriteButton");
 const answerGrid = document.getElementById("answerGrid");
 const resultCard = document.querySelector(".result-card");
@@ -91,6 +92,7 @@ let favorites = loadFavorites();
 let quizCorrectCount = 0;
 let quizMistakeCount = 0;
 let currentTestMistakes = [];
+let quizAdvanceTimer = null;
 
 const modeIconMarkup = {
   all: `
@@ -725,6 +727,7 @@ function startQuiz() {
 }
 
 function startQuestions(sourceWords) {
+  window.clearTimeout(quizAdvanceTimer);
   quizQuestions = shuffle(sourceWords).slice(0, selectedQuizLength).map((word) => ({
     ...word,
     answers: shuffle([
@@ -739,6 +742,13 @@ function startQuestions(sourceWords) {
   currentTestMistakes = [];
   showScreen("quiz");
   renderQuizQuestion();
+}
+
+function exitQuiz() {
+  window.clearTimeout(quizAdvanceTimer);
+  quizAdvanceTimer = null;
+  answerLocked = false;
+  showScreen("test");
 }
 
 function restartSelectedModeQuiz() {
@@ -831,8 +841,9 @@ function handleAnswer(button, isCorrect) {
   updateMistakeStats(question, isCorrect);
   tg?.HapticFeedback?.notificationOccurred(isCorrect ? "success" : "error");
 
-  window.setTimeout(() => {
+  quizAdvanceTimer = window.setTimeout(() => {
     quizIndex += 1;
+    quizAdvanceTimer = null;
 
     if (quizIndex >= quizQuestions.length) {
       finishQuiz();
@@ -882,6 +893,9 @@ repeatMistakesButton?.addEventListener("click", () => {
 });
 resultBackButton?.addEventListener("click", () => {
   showScreen("test");
+});
+quizBackButton?.addEventListener("click", () => {
+  exitQuiz();
 });
 startFavoritesButton?.addEventListener("click", () => {
   setMode("favorites");
