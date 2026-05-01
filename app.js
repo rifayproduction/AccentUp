@@ -1,4 +1,25 @@
-const tg = window.Telegram?.WebApp;
+let tg = window.Telegram?.WebApp || null;
+let telegramInitialized = false;
+
+function initTelegramWebApp() {
+  const webApp = window.Telegram?.WebApp;
+
+  if (!webApp) {
+    return;
+  }
+
+  tg = webApp;
+
+  if (telegramInitialized) {
+    return;
+  }
+
+  tg.ready();
+  tg.expand();
+  telegramInitialized = true;
+}
+
+window.initTelegramWebApp = initTelegramWebApp;
 
 const DEFAULT_QUIZ_LENGTH = 10;
 const QUIZ_LENGTH_STORAGE_KEY = "egeAccentQuizLength";
@@ -127,10 +148,7 @@ const modeIconMarkup = {
   `,
 };
 
-if (tg) {
-  tg.ready();
-  tg.expand();
-}
+initTelegramWebApp();
 
 function plainWord(value) {
   return value
