@@ -22,11 +22,32 @@ function initTelegramWebApp() {
 window.initTelegramWebApp = initTelegramWebApp;
 
 const DEFAULT_QUIZ_LENGTH = 10;
+const TRAINING_SECTION_STORAGE_KEY = "accentUpTrainingSection";
+const TRAINING_SECTIONS = ["accents", "paronyms"];
+const MAIN_TRAINING_MODES = ["all", "allWords"];
+const PRACTICE_SECTIONS = ["accents", "paronyms"];
+const PRACTICE_SOURCES = ["mistakes", "favorites"];
+const PRACTICE_FORMATS = ["cloze", "meaning"];
+const PRACTICE_SECTION_LABELS = {
+  accents: "Ударения",
+  paronyms: "Паронимы",
+};
+const PRACTICE_SOURCE_LABELS = {
+  mistakes: "Ошибки",
+  favorites: "Избранное",
+};
+const PRACTICE_FORMAT_LABELS = {
+  cloze: "Вставить слово",
+  meaning: "Понять значение",
+};
 const QUIZ_LENGTH_STORAGE_KEY = "egeAccentQuizLength";
 const MISTAKES_STORAGE_KEY = "egeAccentMistakes";
 const FAVORITES_STORAGE_KEY = "egeAccentFavorites";
+const PARONYM_MISTAKES_STORAGE_KEY = "accentUpParonymMistakes";
+const PARONYM_FAVORITES_STORAGE_KEY = "accentUpParonymFavorites";
 
 const accentData = window.ACCENT_DATA || {};
+const paronymData = window.PARONYM_DATA || {};
 const baseAccentWords = accentData.baseWords || [];
 const additionalWordForms = accentData.additionalForms || [];
 const extraWordForms = accentData.extraForms || [];
@@ -54,14 +75,19 @@ const extraWords = dedupeWords(
 );
 const knownWords = dedupeWords([...accentWords, ...extraWords]);
 const wordInfo = accentData.info || {};
+const paronymPairs = normalizeParonymPairs(paronymData.pairs || []);
+const egeParonymPairs = paronymPairs.filter((pair) => pair.source === "ege" || pair.tags.includes("ege"));
 
 const tabs = document.querySelectorAll("[data-tab]");
 const screens = document.querySelectorAll("[data-screen]");
 const tabBar = document.querySelector(".tab-bar");
+const trainingSectionButtons = document.querySelectorAll("[data-training-section]");
 const modeSelect = document.getElementById("modeSelect");
 const modeOptions = document.querySelectorAll("[data-mode]");
 const quizLengthOptions = document.querySelectorAll("[data-quiz-length]");
 const quizLengthControl = document.querySelector(".quiz-length");
+const quizLengthTitle = document.querySelector(".quiz-length-copy span");
+const quizLengthHint = document.querySelector(".quiz-length-copy small");
 const modeTrigger = document.getElementById("modeTrigger");
 const modeIcon = document.getElementById("modeIcon");
 const modeLabel = document.getElementById("modeLabel");
@@ -86,12 +112,33 @@ const wordInfoText = document.getElementById("wordInfoText");
 const favoritesResults = document.getElementById("favoritesResults");
 const favoritesSummary = document.getElementById("favoritesSummary");
 const startFavoritesButton = document.getElementById("startFavoritesButton");
+const practiceDirectionSelect = document.getElementById("practiceDirectionSelect");
+const practiceDirectionTrigger = document.getElementById("practiceDirectionTrigger");
+const practiceDirectionMenu = document.getElementById("practiceDirectionMenu");
+const practiceSectionButtons = document.querySelectorAll("[data-practice-section]");
+const practiceSourceButtons = document.querySelectorAll("[data-practice-source]");
+const practiceFormatButtons = document.querySelectorAll("[data-practice-format]");
+const practiceFormatWrap = document.getElementById("practiceFormatWrap");
+const practicePlan = document.getElementById("practicePlan");
+const practiceListTitle = document.getElementById("practiceListTitle");
+const practiceCurrentIcon = document.getElementById("practiceCurrentIcon");
+const practiceCurrentSection = document.getElementById("practiceCurrentSection");
+const practiceCurrentMeta = document.getElementById("practiceCurrentMeta");
+const practiceCurrentCount = document.getElementById("practiceCurrentCount");
+const practiceAccentMeta = document.getElementById("practiceAccentMeta");
+const practiceParonymMeta = document.getElementById("practiceParonymMeta");
+const practiceAccentCount = document.getElementById("practiceAccentCount");
+const practiceParonymCount = document.getElementById("practiceParonymCount");
+const practiceMistakesCount = document.getElementById("practiceMistakesCount");
+const practiceFavoritesCount = document.getElementById("practiceFavoritesCount");
 const quizCounter = document.getElementById("quizCounter");
 const quizProgress = document.getElementById("quizProgress");
 const quizProgressBar = document.getElementById("quizProgressBar");
 const quizBackButton = document.getElementById("quizBackButton");
 const quizFavoriteButton = document.getElementById("quizFavoriteButton");
+const quizQuestion = document.getElementById("quizQuestion");
 const answerGrid = document.getElementById("answerGrid");
+const quizFeedback = document.getElementById("quizFeedback");
 const resultCard = document.querySelector(".result-card");
 const resultVerdict = document.getElementById("resultVerdict");
 const resultScore = document.getElementById("resultScore");
@@ -105,15 +152,22 @@ const modeHint = document.getElementById("modeHint");
 let quizQuestions = [];
 let quizIndex = 0;
 let answerLocked = false;
+let selectedTrainingSection = loadTrainingSection();
 let selectedMode = "all";
 let selectedDictionaryFilter = "all";
 let selectedQuizLength = loadQuizLength();
+let selectedPracticeSection = "accents";
+let selectedPracticeSource = "mistakes";
+let selectedPracticeFormat = "cloze";
 let mistakes = loadMistakes();
 let favorites = loadFavorites();
+let paronymMistakes = loadStorageMap(PARONYM_MISTAKES_STORAGE_KEY);
+let paronymFavorites = loadStorageMap(PARONYM_FAVORITES_STORAGE_KEY);
 let quizCorrectCount = 0;
 let quizMistakeCount = 0;
 let currentTestMistakes = [];
 let quizAdvanceTimer = null;
+let activeQuizSection = "accents";
 
 const modeIconMarkup = {
   all: `
@@ -146,6 +200,15 @@ const modeIconMarkup = {
       <path d="M18 8h1a1 1 0 0 1 1 1v11H8" />
     </svg>
   `,
+  paronyms: `
+    <svg viewBox="0 0 24 24" focusable="false">
+      <path d="M5.5 6.5h6.2a3.8 3.8 0 0 1 0 7.6H5.5V6.5Z" />
+      <path d="M8 10.3h4" />
+      <path d="M18.5 7.2v9.6" />
+      <path d="M15.5 10.2 18.5 7.2l3 3" />
+      <path d="M15.5 13.8l3 3 3-3" />
+    </svg>
+  `,
 };
 
 initTelegramWebApp();
@@ -174,6 +237,60 @@ function dedupeWords(words) {
     seen.add(key);
     return true;
   });
+}
+
+function normalizeParonymPairs(pairs) {
+  return pairs
+    .filter((pair) => pair && Array.isArray(pair.entries) && pair.entries.length >= 2)
+    .map((pair) => {
+      const entries = pair.entries
+        .filter((entry) => entry?.word)
+        .map((entry) => ({
+          word: entry.word.trim(),
+          meaning: entry.meaning || "",
+          example: entry.example || "",
+        }));
+      const words = entries.map((entry) => entry.word);
+      const id = pair.id || words.map(normalizeText).join("-");
+      const tags = Array.isArray(pair.tags) ? pair.tags : [];
+
+      return {
+        id,
+        source: pair.source || "ege",
+        status: pair.status || (entries.some((entry) => entry.meaning || entry.example) ? "ready" : "draft"),
+        tags,
+        entries,
+        words,
+        title: words.join(" / "),
+      };
+    })
+    .filter((pair) => pair.entries.length >= 2);
+}
+
+function hasParonymMeaning(entry) {
+  return Boolean(entry?.meaning?.trim());
+}
+
+function hasParonymExample(entry) {
+  return Boolean(entry?.example?.trim());
+}
+
+function getParonymEntryMeaning(entry) {
+  return hasParonymMeaning(entry) ? entry.meaning : "значение добавим позже";
+}
+
+function getPlayableParonymEntries(pair, format = "cloze") {
+  return pair.entries.filter((entry) => {
+    if (format === "meaning") {
+      return hasParonymMeaning(entry);
+    }
+
+    return hasParonymExample(entry) || hasParonymMeaning(entry);
+  });
+}
+
+function getPlayableParonymPairs(pairs, format = "cloze") {
+  return pairs.filter((pair) => getPlayableParonymEntries(pair, format).length > 0);
 }
 
 function makeWrongAccent(correct) {
@@ -225,6 +342,14 @@ function shuffle(items) {
   return [...items].sort(() => Math.random() - 0.5);
 }
 
+function loadStorageMap(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) || {};
+  } catch {
+    return {};
+  }
+}
+
 function loadMistakes() {
   try {
     return JSON.parse(localStorage.getItem(MISTAKES_STORAGE_KEY)) || {};
@@ -249,6 +374,24 @@ function saveFavorites() {
   localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
 }
 
+function loadTrainingSection() {
+  const savedSection = localStorage.getItem(TRAINING_SECTION_STORAGE_KEY);
+
+  return TRAINING_SECTIONS.includes(savedSection) ? savedSection : "accents";
+}
+
+function saveTrainingSection() {
+  localStorage.setItem(TRAINING_SECTION_STORAGE_KEY, selectedTrainingSection);
+}
+
+function saveParonymMistakes() {
+  localStorage.setItem(PARONYM_MISTAKES_STORAGE_KEY, JSON.stringify(paronymMistakes));
+}
+
+function saveParonymFavorites() {
+  localStorage.setItem(PARONYM_FAVORITES_STORAGE_KEY, JSON.stringify(paronymFavorites));
+}
+
 function loadQuizLength() {
   const savedLength = Number(localStorage.getItem(QUIZ_LENGTH_STORAGE_KEY));
 
@@ -266,13 +409,45 @@ function setQuizLength(length) {
   quizLengthOptions.forEach((button) => {
     button.classList.toggle("active", Number(button.dataset.quizLength) === selectedQuizLength);
   });
+
+  renderFavorites();
 }
 
 function isFavorite(word) {
+  if (isParonymItem(word)) {
+    const pair = getParonymPairFromItem(word);
+    return Boolean(pair && paronymFavorites[pair.id]);
+  }
+
   return Boolean(favorites[normalizeText(word.correct)]);
 }
 
 function toggleFavorite(word) {
+  if (isParonymItem(word)) {
+    const pair = getParonymPairFromItem(word);
+
+    if (!pair) {
+      return;
+    }
+
+    if (paronymFavorites[pair.id]) {
+      delete paronymFavorites[pair.id];
+    } else {
+      paronymFavorites[pair.id] = {
+        id: pair.id,
+        title: pair.title,
+        words: pair.words,
+      };
+    }
+
+    saveParonymFavorites();
+    renderModeState();
+    renderDictionary();
+    renderFavorites();
+    renderQuizFavoriteButton();
+    return;
+  }
+
   const key = normalizeText(word.correct);
 
   if (favorites[key]) {
@@ -294,11 +469,12 @@ function toggleFavorite(word) {
 function createFavoriteButton(word) {
   const button = document.createElement("button");
   const active = isFavorite(word);
+  const itemName = isParonymItem(word) ? "пару" : "слово";
   button.className = "favorite-button";
   button.type = "button";
   button.textContent = "★";
   button.classList.toggle("active", active);
-  button.setAttribute("aria-label", active ? "Убрать из избранного" : "Добавить в избранное");
+  button.setAttribute("aria-label", active ? `Убрать ${itemName} из избранного` : `Добавить ${itemName} в избранное`);
   button.addEventListener("click", (event) => {
     event.stopPropagation();
     toggleFavorite(word);
@@ -309,15 +485,46 @@ function createFavoriteButton(word) {
 
 function updateFavoriteButton(button, word) {
   if (!button || !word) {
+    button?.classList.remove("active");
     return;
   }
 
   const active = isFavorite(word);
+  const itemName = isParonymItem(word) ? "пару" : "слово";
   button.classList.toggle("active", active);
-  button.setAttribute("aria-label", active ? "Убрать из избранного" : "Добавить в избранное");
+  button.setAttribute("aria-label", active ? `Убрать ${itemName} из избранного` : `Добавить ${itemName} в избранное`);
+}
+
+function isParonymItem(item) {
+  return Boolean(item?.type === "paronym" || item?.pair || Array.isArray(item?.entries));
+}
+
+function getParonymPairFromItem(item) {
+  if (!item) {
+    return null;
+  }
+
+  if (item.pair) {
+    return item.pair;
+  }
+
+  if (Array.isArray(item.entries)) {
+    return item;
+  }
+
+  if (item.id) {
+    return paronymPairs.find((pair) => pair.id === item.id) || null;
+  }
+
+  return null;
 }
 
 function updateMistakeStats(word, isCorrect) {
+  if (isParonymItem(word)) {
+    updateParonymMistakeStats(word, isCorrect);
+    return;
+  }
+
   const key = normalizeText(word.correct);
 
   if (!isCorrect) {
@@ -328,6 +535,7 @@ function updateMistakeStats(word, isCorrect) {
     };
     saveMistakes();
     renderModeState();
+    renderFavorites();
     return;
   }
 
@@ -340,6 +548,40 @@ function updateMistakeStats(word, isCorrect) {
 
     saveMistakes();
     renderModeState();
+    renderFavorites();
+  }
+}
+
+function updateParonymMistakeStats(item, isCorrect) {
+  const pair = getParonymPairFromItem(item);
+
+  if (!pair) {
+    return;
+  }
+
+  if (!isCorrect) {
+    paronymMistakes[pair.id] = {
+      id: pair.id,
+      title: pair.title,
+      words: pair.words,
+      count: (paronymMistakes[pair.id]?.count || 0) + 1,
+    };
+    saveParonymMistakes();
+    renderModeState();
+    renderFavorites();
+    return;
+  }
+
+  if (selectedMode === "mistakes" && paronymMistakes[pair.id]) {
+    paronymMistakes[pair.id].count -= 1;
+
+    if (paronymMistakes[pair.id].count <= 0) {
+      delete paronymMistakes[pair.id];
+    }
+
+    saveParonymMistakes();
+    renderModeState();
+    renderFavorites();
   }
 }
 
@@ -351,6 +593,118 @@ function getMistakeWords() {
 function getFavoriteWords() {
   const favoriteKeys = new Set(Object.keys(favorites));
   return knownWords.filter((word) => favoriteKeys.has(normalizeText(word.correct)));
+}
+
+function getParonymMistakePairs() {
+  const mistakeKeys = new Set(Object.keys(paronymMistakes));
+  return paronymPairs.filter((pair) => mistakeKeys.has(pair.id));
+}
+
+function getParonymFavoritePairs() {
+  const favoriteKeys = new Set(Object.keys(paronymFavorites));
+  return paronymPairs.filter((pair) => favoriteKeys.has(pair.id));
+}
+
+function uniqueAccentWords(items) {
+  const seen = new Set();
+  return items.filter((word) => {
+    const key = normalizeText(word.correct);
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function uniqueParonymPairs(items) {
+  const seen = new Set();
+  return items.filter((pair) => {
+    if (seen.has(pair.id)) {
+      return false;
+    }
+
+    seen.add(pair.id);
+    return true;
+  });
+}
+
+function getPracticeAccentWords(source = selectedPracticeSource) {
+  const mistakeWords = getMistakeWords();
+  const favoriteWords = getFavoriteWords();
+
+  if (source === "mistakes") {
+    return mistakeWords;
+  }
+
+  if (source === "favorites") {
+    return favoriteWords;
+  }
+
+  return uniqueAccentWords([...mistakeWords, ...favoriteWords]);
+}
+
+function getPracticeParonymPairs(source = selectedPracticeSource) {
+  const mistakePairs = getParonymMistakePairs();
+  const favoritePairs = getParonymFavoritePairs();
+
+  if (source === "mistakes") {
+    return mistakePairs;
+  }
+
+  if (source === "favorites") {
+    return favoritePairs;
+  }
+
+  return uniqueParonymPairs([...mistakePairs, ...favoritePairs]);
+}
+
+function getPracticeItems(section = selectedPracticeSection, source = selectedPracticeSource) {
+  return section === "paronyms"
+    ? getPracticeParonymPairs(source)
+    : getPracticeAccentWords(source);
+}
+
+function getPracticeCounts(section = selectedPracticeSection) {
+  if (section === "paronyms") {
+    const mistakePairs = getParonymMistakePairs();
+    const favoritePairs = getParonymFavoritePairs();
+
+    return {
+      mistakes: mistakePairs.length,
+      favorites: favoritePairs.length,
+      mixed: uniqueParonymPairs([...mistakePairs, ...favoritePairs]).length,
+    };
+  }
+
+  const mistakeWords = getMistakeWords();
+  const favoriteWords = getFavoriteWords();
+
+  return {
+    mistakes: mistakeWords.length,
+    favorites: favoriteWords.length,
+    mixed: uniqueAccentWords([...mistakeWords, ...favoriteWords]).length,
+  };
+}
+
+function getSelectedParonymPairs() {
+  const format = getParonymQuestionFormat();
+
+  if (selectedMode === "mistakes") {
+    return getPlayableParonymPairs(getParonymMistakePairs(), format);
+  }
+
+  if (selectedMode === "favorites") {
+    return getPlayableParonymPairs(getParonymFavoritePairs(), format);
+  }
+
+  if (selectedMode === "allWords") {
+    return getPlayableParonymPairs(egeParonymPairs, format);
+  }
+
+  return getPlayableParonymPairs(egeParonymPairs, format);
 }
 
 function getSelectedModeWords() {
@@ -369,20 +723,43 @@ function getSelectedModeWords() {
   return accentWords;
 }
 
-function getWordInfo(word) {
-  return wordInfo[normalizeText(word.correct)];
+function getDictionaryItems() {
+  const accentItems = knownWords.map((word) => ({
+    type: "accent",
+    word,
+  }));
+  const paronymItems = paronymPairs.map((pair) => ({
+    type: "paronym",
+    pair,
+  }));
+
+  if (selectedDictionaryFilter === "accents") {
+    return accentItems;
+  }
+
+  if (selectedDictionaryFilter === "paronyms") {
+    return paronymItems;
+  }
+
+  return [...accentItems, ...paronymItems];
 }
 
-function getDictionaryWords() {
-  if (selectedDictionaryFilter === "ege") {
-    return accentWords;
+function matchesDictionaryQuery(item, query) {
+  if (item.type === "paronym") {
+    const pair = item.pair;
+    const searchable = [
+      pair.title,
+      ...pair.entries.flatMap((entry) => [entry.word, entry.meaning, entry.example]),
+    ].join(" ");
+
+    return normalizeText(searchable).includes(query);
   }
 
-  if (selectedDictionaryFilter === "extra") {
-    return extraWords;
-  }
+  return normalizeText(item.word.correct).includes(query);
+}
 
-  return knownWords;
+function getWordInfo(word) {
+  return wordInfo[normalizeText(word.correct)];
 }
 
 function getWordSource(word) {
@@ -468,7 +845,26 @@ function formatWordCount(count) {
   return `${count} слов`;
 }
 
-function getModeDetails(mode) {
+function formatPairCount(count) {
+  const lastTwo = count % 100;
+  const last = count % 10;
+
+  if (lastTwo >= 11 && lastTwo <= 14) {
+    return `${count} пар`;
+  }
+
+  if (last === 1) {
+    return `${count} пара`;
+  }
+
+  if (last >= 2 && last <= 4) {
+    return `${count} пары`;
+  }
+
+  return `${count} пар`;
+}
+
+function getAccentModeDetails(mode) {
   const mistakeCount = Object.keys(mistakes).length;
   const favoriteCount = getFavoriteWords().length;
 
@@ -506,29 +902,131 @@ function getModeDetails(mode) {
   return details[mode] || details.all;
 }
 
+function getParonymModeDetails(mode) {
+  const egeCount = egeParonymPairs.length;
+  const clozeCount = getPlayableParonymPairs(egeParonymPairs, "cloze").length;
+  const meaningCount = getPlayableParonymPairs(egeParonymPairs, "meaning").length;
+  const mistakeCount = getParonymMistakePairs().length;
+  const favoriteCount = getParonymFavoritePairs().length;
+
+  const details = {
+    all: {
+      icon: "paronyms",
+      label: "Вставить слово",
+      meta: egeCount ? `${formatPairCount(clozeCount)} готово • ${formatPairCount(egeCount)} в словнике` : "База паронимов пока пустая",
+      count: clozeCount,
+      empty: clozeCount === 0,
+    },
+    mistakes: {
+      icon: "mistakes",
+      label: "Мои ошибки",
+      meta: mistakeCount ? formatPairCount(mistakeCount) : "Ошибок по паронимам пока нет",
+      count: mistakeCount,
+      empty: mistakeCount === 0,
+    },
+    favorites: {
+      icon: "favorites",
+      label: "Избранное",
+      meta: favoriteCount ? formatPairCount(favoriteCount) : "Избранных пар пока нет",
+      count: favoriteCount,
+      empty: favoriteCount === 0,
+    },
+    allWords: {
+      icon: "allWords",
+      label: "Понять значение",
+      meta: egeCount ? `${formatPairCount(meaningCount)} готово • ${formatPairCount(egeCount)} в словнике` : "База паронимов пока пустая",
+      count: meaningCount,
+      empty: meaningCount === 0,
+    },
+  };
+
+  return details[mode] || details.all;
+}
+
+function getModeDetails(mode) {
+  return selectedTrainingSection === "paronyms"
+    ? getParonymModeDetails(mode)
+    : getAccentModeDetails(mode);
+}
+
+function isVisibleModeForSection(mode) {
+  return MAIN_TRAINING_MODES.includes(mode);
+}
+
+function syncModeOptionActive() {
+  modeOptions.forEach((button) => {
+    button.classList.toggle("active", button.dataset.mode === selectedMode);
+  });
+}
+
+function renderTrainingSection() {
+  const isParonyms = selectedTrainingSection === "paronyms";
+
+  document.body.dataset.trainingSection = selectedTrainingSection;
+
+  trainingSectionButtons.forEach((button) => {
+    const active = button.dataset.trainingSection === selectedTrainingSection;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  modeSelect?.classList.remove("section-disabled");
+  quizLengthControl?.classList.remove("section-disabled");
+}
+
+function setTrainingSection(section) {
+  const nextSection = TRAINING_SECTIONS.includes(section) ? section : "accents";
+  const sectionChanged = selectedTrainingSection !== nextSection;
+
+  selectedTrainingSection = nextSection;
+
+  if (sectionChanged) {
+    selectedMode = "all";
+    syncModeOptionActive();
+  }
+
+  saveTrainingSection();
+  setModeMenuOpen(false);
+  renderTrainingSection();
+  renderModeState();
+}
+
 function renderModeState() {
-  const count = Object.keys(mistakes).length;
-  const favoriteCount = getFavoriteWords().length;
   const currentMode = getModeDetails(selectedMode);
-
-  if (egeWordsCount) {
-    egeWordsCount.textContent = accentWords.length;
-  }
-
-  if (allWordsCount) {
-    allWordsCount.textContent = knownWords.length;
-  }
-
-  if (mistakesCount) {
-    mistakesCount.textContent = count;
-  }
-
-  if (favoritesCount) {
-    favoritesCount.textContent = favoriteCount;
-  }
+  const isParonyms = selectedTrainingSection === "paronyms";
 
   modeOptions.forEach((button) => {
-    button.classList.toggle("empty", getModeDetails(button.dataset.mode).empty);
+    const mode = button.dataset.mode;
+    const isVisible = isVisibleModeForSection(mode);
+    button.hidden = !isVisible;
+
+    if (!isVisible) {
+      return;
+    }
+
+    const details = getModeDetails(mode);
+    const optionIcon = button.querySelector(".mode-option-icon");
+    const optionTitle = button.querySelector(".mode-option-text strong");
+    const optionMeta = button.querySelector(".mode-option-text small");
+    const optionBadge = button.querySelector(".mode-badge");
+
+    button.classList.toggle("empty", details.empty);
+
+    if (optionIcon) {
+      optionIcon.innerHTML = modeIconMarkup[details.icon] || modeIconMarkup.all;
+    }
+
+    if (optionTitle) {
+      optionTitle.textContent = details.label;
+    }
+
+    if (optionMeta) {
+      optionMeta.textContent = details.meta;
+    }
+
+    if (optionBadge) {
+      optionBadge.textContent = details.count;
+    }
   });
 
   if (modeIcon) {
@@ -544,18 +1042,40 @@ function renderModeState() {
   }
 
   if (modeHint) {
-    modeHint.textContent = currentMode.empty ? currentMode.meta : "";
+    modeHint.textContent = isParonyms
+      ? currentMode.empty
+        ? currentMode.meta
+        : ""
+      : currentMode.empty
+        ? currentMode.meta
+        : "";
   }
 
-  startTestButton.disabled = currentMode.empty;
+  if (modeTrigger) {
+    modeTrigger.disabled = false;
+  }
+
+  quizLengthOptions.forEach((button) => {
+    button.disabled = false;
+  });
+
+  if (startTestButton) {
+    startTestButton.disabled = currentMode.empty;
+    startTestButton.textContent = "Начать тест";
+  }
+
+  if (quizLengthTitle) {
+    quizLengthTitle.textContent = isParonyms ? "Вопросов в тесте" : "Слов в тесте";
+  }
+
+  if (quizLengthHint) {
+    quizLengthHint.textContent = isParonyms ? "Выбери длину" : "Выбери длину";
+  }
 }
 
 function setMode(mode) {
   selectedMode = mode;
-
-  modeOptions.forEach((button) => {
-    button.classList.toggle("active", button.dataset.mode === mode);
-  });
+  syncModeOptionActive();
 
   renderModeState();
 }
@@ -570,6 +1090,16 @@ function setModeMenuOpen(isOpen) {
   modeTrigger.setAttribute("aria-expanded", String(isOpen));
 }
 
+function setPracticeDirectionMenuOpen(isOpen) {
+  if (!practiceDirectionMenu || !practiceDirectionTrigger) {
+    return;
+  }
+
+  practiceDirectionMenu.classList.toggle("open", isOpen);
+  practiceDirectionMenu.setAttribute("aria-hidden", String(!isOpen));
+  practiceDirectionTrigger.setAttribute("aria-expanded", String(isOpen));
+}
+
 function showScreen(screenName) {
   const nextScreen = ["dictionary", "quiz", "result", "favorites", "info"].includes(screenName)
     ? screenName
@@ -577,8 +1107,17 @@ function showScreen(screenName) {
 
   document.body.dataset.screen = nextScreen;
 
+  if (nextScreen === "test" && !isVisibleModeForSection(selectedMode)) {
+    selectedMode = "all";
+    syncModeOptionActive();
+  }
+
   if (nextScreen !== "test") {
     setModeMenuOpen(false);
+  }
+
+  if (nextScreen !== "favorites") {
+    setPracticeDirectionMenuOpen(false);
   }
 
   if (nextScreen !== "dictionary") {
@@ -607,6 +1146,90 @@ function showScreen(screenName) {
   if (nextScreen === "favorites") {
     renderFavorites();
   }
+
+  if (nextScreen === "test") {
+    renderModeState();
+  }
+}
+
+function renderAccentDictionaryRow(word, target = dictionaryResults) {
+  const row = document.createElement("div");
+  row.className = "word-row dictionary-row";
+  const copy = document.createElement("span");
+  copy.className = "word-copy";
+  const wordLine = document.createElement("span");
+  wordLine.className = "word-line";
+  const text = document.createElement("span");
+  const info = getWordInfo(word);
+  text.textContent = formatStress(word.correct);
+
+  wordLine.append(text);
+
+  if (info) {
+    const helpButton = document.createElement("button");
+    helpButton.className = "word-help-button";
+    helpButton.type = "button";
+    helpButton.textContent = "?";
+    helpButton.setAttribute("aria-label", `Описание слова ${formatStress(word.correct)}`);
+    helpButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openWordInfo(info);
+    });
+    wordLine.append(helpButton);
+  }
+
+  copy.append(wordLine);
+  const source = document.createElement("small");
+  source.className = "word-source-badge";
+  source.textContent = getWordSource(word);
+  copy.append(source);
+
+  row.append(copy, createFavoriteButton(word));
+  target.append(row);
+}
+
+function renderParonymRow(pair, target = dictionaryResults) {
+  const row = document.createElement("div");
+  row.className = "word-row dictionary-row paronym-row";
+  const copy = document.createElement("span");
+  copy.className = "word-copy";
+  const wordLine = document.createElement("span");
+  wordLine.className = "word-line";
+  const title = document.createElement("span");
+  const entries = document.createElement("span");
+  const source = document.createElement("small");
+  const toggleButton = document.createElement("button");
+
+  title.textContent = pair.title;
+  entries.className = "paronym-entry-list";
+  entries.hidden = true;
+  pair.entries.forEach((entry) => {
+    const entryLine = document.createElement("span");
+    const word = document.createElement("strong");
+    word.textContent = entry.word;
+    entryLine.classList.toggle("pending", !hasParonymMeaning(entry));
+    entryLine.append(word, document.createTextNode(` - ${getParonymEntryMeaning(entry)}`));
+    entries.append(entryLine);
+  });
+
+  source.className = "word-source-badge paronym-badge";
+  source.textContent = pair.source === "ege" ? "ЕГЭ паронимы" : "Паронимы";
+  toggleButton.className = "paronym-toggle";
+  toggleButton.type = "button";
+  toggleButton.setAttribute("aria-label", "Показать значения");
+  toggleButton.setAttribute("aria-expanded", "false");
+  toggleButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const expanded = row.classList.toggle("open");
+    entries.hidden = !expanded;
+    toggleButton.setAttribute("aria-expanded", String(expanded));
+    toggleButton.setAttribute("aria-label", expanded ? "Скрыть значения" : "Показать значения");
+  });
+
+  wordLine.append(title, toggleButton);
+  copy.append(wordLine, entries, source);
+  row.append(copy, createFavoriteButton(pair));
+  target.append(row);
 }
 
 function renderDictionary() {
@@ -627,15 +1250,15 @@ function renderDictionary() {
     return;
   }
 
-  const words = getDictionaryWords().filter((word) => normalizeText(word.correct).includes(query));
+  const items = getDictionaryItems().filter((item) => matchesDictionaryQuery(item, query));
 
   if (dictionarySummary) {
-    dictionarySummary.textContent = words.length
-      ? `Найдено: ${formatWordCount(words.length)}`
+    dictionarySummary.textContent = items.length
+      ? `Найдено: ${items.length}`
       : "Ничего не найдено";
   }
 
-  if (!words.length) {
+  if (!items.length) {
     dictionaryResults.innerHTML = `
       <div class="empty-state dictionary-empty-result">
         <strong>Такого слова пока нет</strong>
@@ -645,40 +1268,13 @@ function renderDictionary() {
     return;
   }
 
-  words.forEach((word) => {
-    const row = document.createElement("div");
-    row.className = "word-row dictionary-row";
-    const copy = document.createElement("span");
-    copy.className = "word-copy";
-    const wordLine = document.createElement("span");
-    wordLine.className = "word-line";
-    const text = document.createElement("span");
-    const info = getWordInfo(word);
-    text.textContent = formatStress(word.correct);
-
-    wordLine.append(text);
-
-    if (info) {
-      const helpButton = document.createElement("button");
-      helpButton.className = "word-help-button";
-      helpButton.type = "button";
-      helpButton.textContent = "?";
-      helpButton.setAttribute("aria-label", `Описание слова ${formatStress(word.correct)}`);
-      helpButton.addEventListener("click", (event) => {
-        event.stopPropagation();
-        openWordInfo(info);
-      });
-      wordLine.append(helpButton);
+  items.forEach((item) => {
+    if (item.type === "paronym") {
+      renderParonymRow(item.pair);
+      return;
     }
 
-    copy.append(wordLine);
-    const source = document.createElement("small");
-    source.className = "word-source-badge";
-    source.textContent = getWordSource(word);
-    copy.append(source);
-
-    row.append(copy, createFavoriteButton(word));
-    dictionaryResults.append(row);
+    renderAccentDictionaryRow(item.word);
   });
 }
 
@@ -693,18 +1289,127 @@ function renderFavorites() {
     return;
   }
 
-  const words = getFavoriteWords();
+  const accentCounts = getPracticeCounts("accents");
+  const paronymCounts = getPracticeCounts("paronyms");
+  let activeCounts = getPracticeCounts(selectedPracticeSection);
+
+  if (!activeCounts[selectedPracticeSource] && activeCounts.mixed) {
+    selectedPracticeSource = PRACTICE_SOURCES.find((source) => activeCounts[source]) || "mistakes";
+    activeCounts = getPracticeCounts(selectedPracticeSection);
+  }
+
+  const activeItems = getPracticeItems();
+  const totalFavorites = accentCounts.favorites + paronymCounts.favorites;
+  const totalMistakes = accentCounts.mistakes + paronymCounts.mistakes;
+  const total = totalFavorites + totalMistakes;
   favoritesResults.innerHTML = "";
 
   if (favoritesSummary) {
-    favoritesSummary.textContent = formatWordCount(words.length) + " сохранено";
+    const parts = [];
+
+    if (totalMistakes) {
+      parts.push(`${totalMistakes} ошибок`);
+    }
+
+    if (totalFavorites) {
+      parts.push(`${totalFavorites} в избранном`);
+    }
+
+    favoritesSummary.textContent = parts.length ? parts.join(" • ") : "0 для практики";
   }
+
+  if (practiceAccentMeta) {
+    practiceAccentMeta.textContent = `${accentCounts.mistakes} ошибок • ${accentCounts.favorites} избранного`;
+  }
+
+  if (practiceParonymMeta) {
+    practiceParonymMeta.textContent = `${paronymCounts.mistakes} ошибок • ${paronymCounts.favorites} избранного`;
+  }
+
+  if (practiceAccentCount) {
+    practiceAccentCount.textContent = accentCounts.mixed;
+  }
+
+  if (practiceParonymCount) {
+    practiceParonymCount.textContent = paronymCounts.mixed;
+  }
+
+  if (practiceCurrentIcon) {
+    practiceCurrentIcon.innerHTML = selectedPracticeSection === "paronyms"
+      ? modeIconMarkup.paronyms
+      : modeIconMarkup.all;
+  }
+
+  if (practiceCurrentSection) {
+    practiceCurrentSection.textContent = PRACTICE_SECTION_LABELS[selectedPracticeSection];
+  }
+
+  if (practiceCurrentMeta) {
+    practiceCurrentMeta.textContent = `${activeCounts.mistakes} ошибок • ${activeCounts.favorites} избранного`;
+  }
+
+  if (practiceCurrentCount) {
+    practiceCurrentCount.textContent = activeCounts.mixed;
+  }
+
+  practiceSectionButtons.forEach((button) => {
+    const active = button.dataset.practiceSection === selectedPracticeSection;
+    const count = getPracticeCounts(button.dataset.practiceSection).mixed;
+    button.classList.toggle("active", active);
+    button.classList.toggle("empty", count === 0);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  practiceSourceButtons.forEach((button) => {
+    const source = button.dataset.practiceSource;
+    const active = source === selectedPracticeSource;
+    const count = activeCounts[source] || 0;
+    button.classList.toggle("active", active);
+    button.classList.toggle("empty", count === 0);
+    button.disabled = count === 0;
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  if (practiceMistakesCount) {
+    practiceMistakesCount.textContent = activeCounts.mistakes;
+  }
+
+  if (practiceFavoritesCount) {
+    practiceFavoritesCount.textContent = activeCounts.favorites;
+  }
+
+  if (practiceFormatWrap) {
+    practiceFormatWrap.hidden = selectedPracticeSection !== "paronyms";
+  }
+
+  practiceFormatButtons.forEach((button) => {
+    const active = button.dataset.practiceFormat === selectedPracticeFormat;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 
   if (startFavoritesButton) {
-    startFavoritesButton.hidden = !words.length;
+    startFavoritesButton.hidden = false;
+    startFavoritesButton.disabled = !activeItems.length;
+    startFavoritesButton.textContent = activeItems.length ? "Начать практику" : "Нечего повторять";
   }
 
-  if (!words.length) {
+  if (practicePlan) {
+    const sectionLabel = PRACTICE_SECTION_LABELS[selectedPracticeSection];
+    const sourceLabel = PRACTICE_SOURCE_LABELS[selectedPracticeSource];
+    const formatLabel = selectedPracticeSection === "paronyms"
+      ? ` • ${PRACTICE_FORMAT_LABELS[selectedPracticeFormat]}`
+      : "";
+    practicePlan.textContent = activeItems.length
+      ? `${sectionLabel} • ${sourceLabel}${formatLabel} • ${Math.min(selectedQuizLength, activeItems.length)} заданий`
+      : `${sectionLabel} • ${sourceLabel} • пусто`;
+  }
+
+  if (practiceListTitle) {
+    practiceListTitle.textContent = `${PRACTICE_SOURCE_LABELS[selectedPracticeSource]} • ${activeItems.length}`;
+  }
+
+  if (!activeItems.length) {
     favoritesResults.innerHTML = `
       <div class="empty-state favorites-empty">
         <span class="empty-icon" aria-hidden="true">
@@ -713,27 +1418,70 @@ function renderFavorites() {
             <path d="m12 7.1 1.15 2.33 2.57.37-1.86 1.82.44 2.56L12 12.96l-2.3 1.22.44-2.56L8.28 9.8l2.57-.37L12 7.1Z" />
           </svg>
         </span>
-        <strong>Пока нет избранных слов</strong>
-        <span>Добавляй сложные слова звездочкой в тесте или словаре, чтобы тренировать их отдельно.</span>
+        <strong>Пока пусто</strong>
+        <span>Ошибки появятся после тестов, избранное можно добавить звездочкой в тесте или словаре.</span>
       </div>
     `;
     return;
   }
 
-  words.forEach((word) => {
-    const row = document.createElement("div");
-    row.className = "word-row favorite-row";
-    const copy = document.createElement("span");
-    copy.className = "word-copy";
-    const text = document.createElement("span");
-    text.textContent = formatStress(word.correct);
-    copy.append(text);
-    row.append(copy, createFavoriteButton(word));
-    favoritesResults.append(row);
-  });
+  if (selectedPracticeSection === "paronyms") {
+    activeItems.forEach((pair) => renderParonymRow(pair, favoritesResults));
+    return;
+  }
+
+  activeItems.forEach((word) => renderAccentDictionaryRow(word, favoritesResults));
+}
+
+function setPracticeSection(section) {
+  selectedPracticeSection = PRACTICE_SECTIONS.includes(section) ? section : "accents";
+  setPracticeDirectionMenuOpen(false);
+  renderFavorites();
+}
+
+function setPracticeSource(source) {
+  selectedPracticeSource = PRACTICE_SOURCES.includes(source) ? source : "mistakes";
+  renderFavorites();
+}
+
+function setPracticeFormat(format) {
+  selectedPracticeFormat = PRACTICE_FORMATS.includes(format) ? format : "cloze";
+  renderFavorites();
+}
+
+function startPractice() {
+  const sourceItems = getPracticeItems();
+
+  if (!sourceItems.length) {
+    renderFavorites();
+    return;
+  }
+
+  const nextMode = selectedPracticeSource === "favorites" ? "favorites" : "mistakes";
+  setTrainingSection(selectedPracticeSection);
+  setMode(nextMode);
+
+  if (selectedPracticeSection === "paronyms") {
+    startParonymQuestions(sourceItems, selectedPracticeFormat);
+    return;
+  }
+
+  startQuestions(sourceItems);
 }
 
 function startQuiz() {
+  if (selectedTrainingSection === "paronyms") {
+    const sourcePairs = getSelectedParonymPairs();
+
+    if (!sourcePairs.length) {
+      renderModeState();
+      return;
+    }
+
+    startParonymQuestions(sourcePairs);
+    return;
+  }
+
   const sourceWords = getSelectedModeWords();
 
   if (!sourceWords.length) {
@@ -744,20 +1492,114 @@ function startQuiz() {
   startQuestions(sourceWords);
 }
 
-function startQuestions(sourceWords) {
+function resetQuizState(section) {
   window.clearTimeout(quizAdvanceTimer);
-  quizQuestions = shuffle(sourceWords).slice(0, selectedQuizLength).map((word) => ({
-    ...word,
-    answers: shuffle([
-      { text: word.correct, isCorrect: true },
-      { text: word.wrong, isCorrect: false },
-    ]),
-  }));
+  activeQuizSection = section;
   quizIndex = 0;
   answerLocked = false;
   quizCorrectCount = 0;
   quizMistakeCount = 0;
   currentTestMistakes = [];
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getParonymQuestionFormat() {
+  return selectedMode === "allWords" ? "meaning" : "cloze";
+}
+
+function createParonymPrompt(entry, format = "cloze") {
+  if (format === "meaning") {
+    return {
+      label: "Пойми значение",
+      prompt: entry.meaning,
+    };
+  }
+
+  const example = entry.example?.trim();
+
+  if (!example) {
+    return {
+      label: "Выбери слово",
+      prompt: entry.meaning,
+    };
+  }
+
+  const wordPattern = new RegExp(escapeRegExp(entry.word), "iu");
+  const sentence = example.replace(wordPattern, "_____");
+
+  if (sentence === example) {
+    return {
+      label: "Выбери слово",
+      prompt: entry.meaning,
+    };
+  }
+
+  return {
+    label: "Вставь слово",
+    prompt: sentence,
+  };
+}
+
+function createParonymQuestion(pair, format = getParonymQuestionFormat()) {
+  const playableEntries = getPlayableParonymEntries(pair, format);
+
+  if (!playableEntries.length) {
+    return null;
+  }
+
+  const target = shuffle(playableEntries)[0];
+  const prompt = createParonymPrompt(target, format);
+
+  return {
+    type: "paronym",
+    format,
+    id: pair.id,
+    pair,
+    correct: target.word,
+    label: prompt.label,
+    prompt: prompt.prompt,
+    context: `Группа: ${pair.title}`,
+    answers: shuffle(
+      pair.entries.map((entry) => ({
+        text: entry.word,
+        isCorrect: entry.word === target.word,
+      }))
+    ),
+  };
+}
+
+function startQuestions(sourceWords) {
+  resetQuizState("accents");
+  quizQuestions = shuffle(sourceWords).slice(0, selectedQuizLength).map((word) => ({
+    ...word,
+    type: "accent",
+    answers: shuffle([
+      { text: word.correct, isCorrect: true },
+      { text: word.wrong, isCorrect: false },
+    ]),
+  }));
+  showScreen("quiz");
+  renderQuizQuestion();
+}
+
+function startParonymQuestions(sourcePairs, format = getParonymQuestionFormat()) {
+  resetQuizState("paronyms");
+  quizQuestions = sourcePairs[0]?.type === "paronym"
+    ? shuffle(sourcePairs).slice(0, selectedQuizLength)
+    : shuffle(sourcePairs)
+      .map((pair) => createParonymQuestion(pair, format))
+      .filter(Boolean)
+      .slice(0, selectedQuizLength);
+
+  if (!quizQuestions.length) {
+    renderModeState();
+    renderFavorites();
+    return;
+  }
+
   showScreen("quiz");
   renderQuizQuestion();
 }
@@ -775,6 +1617,11 @@ function restartSelectedModeQuiz() {
 
 function repeatCurrentMistakes() {
   if (!currentTestMistakes.length) {
+    return;
+  }
+
+  if (activeQuizSection === "paronyms") {
+    startParonymQuestions(currentTestMistakes);
     return;
   }
 
@@ -806,8 +1653,76 @@ function finishQuiz() {
   showScreen("result");
 }
 
+function renderQuestionPrompt(question) {
+  if (!quizQuestion) {
+    return;
+  }
+
+  quizQuestion.innerHTML = "";
+
+  if (question.type !== "paronym") {
+    quizQuestion.hidden = true;
+    return;
+  }
+
+  const label = document.createElement("span");
+  const text = document.createElement("strong");
+  const context = document.createElement("small");
+
+  label.textContent = question.label || "Выбери слово";
+  text.textContent = question.prompt;
+  context.textContent = question.context;
+  quizQuestion.append(label, text, context);
+  quizQuestion.hidden = false;
+}
+
+function clearQuizFeedback() {
+  if (!quizFeedback) {
+    return;
+  }
+
+  quizFeedback.hidden = true;
+  quizFeedback.className = "quiz-feedback";
+  quizFeedback.innerHTML = "";
+}
+
+function renderQuizFeedback(question, isCorrect) {
+  if (!quizFeedback || question.type !== "paronym") {
+    return;
+  }
+
+  const correctEntry = question.pair?.entries?.find((entry) => entry.word === question.correct);
+  const badge = document.createElement("span");
+  const title = document.createElement("strong");
+  const meaning = document.createElement("p");
+
+  badge.textContent = isCorrect ? "Верно" : "Разбор";
+  title.textContent = isCorrect ? question.correct : `Правильно: ${question.correct}`;
+  meaning.textContent = correctEntry
+    ? `${correctEntry.word} - ${getParonymEntryMeaning(correctEntry)}`
+    : question.context;
+
+  quizFeedback.className = `quiz-feedback ${isCorrect ? "good" : "bad"}`;
+  quizFeedback.innerHTML = "";
+  quizFeedback.append(badge, title, meaning);
+
+  if (hasParonymExample(correctEntry)) {
+    const example = document.createElement("small");
+    example.textContent = correctEntry.example;
+    quizFeedback.append(example);
+  }
+
+  quizFeedback.hidden = false;
+}
+
 function renderQuizQuestion() {
   const question = quizQuestions[quizIndex];
+
+  if (!question) {
+    finishQuiz();
+    return;
+  }
+
   answerLocked = false;
 
   quizCounter.textContent = `${quizIndex + 1} из ${quizQuestions.length}`;
@@ -822,13 +1737,16 @@ function renderQuizQuestion() {
   }
 
   answerGrid.innerHTML = "";
+  clearQuizFeedback();
+  renderQuestionPrompt(question);
   renderQuizFavoriteButton();
 
-  question.answers.forEach((answer) => {
+  question.answers.forEach((answer, index) => {
     const button = document.createElement("button");
     button.className = "answer-button";
     button.type = "button";
-    button.textContent = formatStress(answer.text);
+    button.dataset.answerIndex = String(index);
+    button.textContent = question.type === "paronym" ? answer.text : formatStress(answer.text);
     button.addEventListener("click", () => handleAnswer(button, answer.isCorrect));
     answerGrid.append(button);
   });
@@ -851,12 +1769,22 @@ function handleAnswer(button, isCorrect) {
   const question = quizQuestions[quizIndex];
   answerLocked = true;
   button.classList.add(isCorrect ? "correct" : "wrong");
+  answerGrid.querySelectorAll(".answer-button").forEach((answerButton) => {
+    const answer = question.answers[Number(answerButton.dataset.answerIndex)];
+
+    if (answer?.isCorrect) {
+      answerButton.classList.add("correct");
+    }
+
+    answerButton.disabled = true;
+  });
   quizCorrectCount += isCorrect ? 1 : 0;
   quizMistakeCount += isCorrect ? 0 : 1;
   if (!isCorrect) {
     currentTestMistakes.push(question);
   }
   updateMistakeStats(question, isCorrect);
+  renderQuizFeedback(question, isCorrect);
   tg?.HapticFeedback?.notificationOccurred(isCorrect ? "success" : "error");
 
   quizAdvanceTimer = window.setTimeout(() => {
@@ -869,12 +1797,40 @@ function handleAnswer(button, isCorrect) {
     }
 
     renderQuizQuestion();
-  }, 650);
+  }, question.type === "paronym" ? 1800 : 650);
 }
 
 tabs.forEach((tab) => {
   tab.addEventListener("click", () => {
     showScreen(tab.dataset.tab);
+  });
+});
+
+trainingSectionButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setTrainingSection(button.dataset.trainingSection);
+  });
+});
+
+practiceSectionButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setPracticeSection(button.dataset.practiceSection);
+  });
+});
+
+practiceDirectionTrigger?.addEventListener("click", () => {
+  setPracticeDirectionMenuOpen(!practiceDirectionMenu?.classList.contains("open"));
+});
+
+practiceSourceButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setPracticeSource(button.dataset.practiceSource);
+  });
+});
+
+practiceFormatButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setPracticeFormat(button.dataset.practiceFormat);
   });
 });
 
@@ -898,9 +1854,14 @@ quizLengthOptions.forEach((button) => {
 document.addEventListener("click", (event) => {
   const clickedModeSelect = modeSelect?.contains(event.target);
   const clickedQuizLength = quizLengthControl?.contains(event.target);
+  const clickedPracticeDirection = practiceDirectionSelect?.contains(event.target);
 
   if (!clickedModeSelect && !clickedQuizLength) {
     setModeMenuOpen(false);
+  }
+
+  if (!clickedPracticeDirection) {
+    setPracticeDirectionMenuOpen(false);
   }
 });
 
@@ -915,10 +1876,7 @@ resultBackButton?.addEventListener("click", () => {
 quizBackButton?.addEventListener("click", () => {
   exitQuiz();
 });
-startFavoritesButton?.addEventListener("click", () => {
-  setMode("favorites");
-  startQuiz();
-});
+startFavoritesButton?.addEventListener("click", startPractice);
 infoButton?.addEventListener("click", () => {
   showScreen("info");
 });
@@ -955,5 +1913,6 @@ renderDictionaryFilter();
 renderDictionary();
 renderFavorites();
 setQuizLength(selectedQuizLength);
+renderTrainingSection();
 renderModeState();
 showScreen("test");
