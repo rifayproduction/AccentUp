@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@500;600;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
   </noscript>
   <link rel="preload" as="image" href="assets/accent-constellations.webp" type="image/webp">
-  <link rel="stylesheet" href="styles.css?v=54">
+  <link rel="stylesheet" href="styles.css?v=60">
 </head>
 <body>
   <main class="app-shell">
@@ -29,6 +29,10 @@
       </div>
 
       <div class="center-stage">
+        <div class="training-section-switch" aria-label="Раздел тренировки">
+          <button class="active" type="button" data-training-section="accents">Ударения</button>
+          <button type="button" data-training-section="paronyms">Паронимы</button>
+        </div>
         <div class="mode-select" id="modeSelect">
           <button class="mode-trigger" id="modeTrigger" type="button" aria-expanded="false">
             <span class="mode-trigger-copy">
@@ -135,7 +139,9 @@
       </div>
 
       <div class="quiz-card">
+        <div class="quiz-question" id="quizQuestion" hidden></div>
         <div class="answer-grid" id="answerGrid"></div>
+        <div class="quiz-feedback" id="quizFeedback" hidden></div>
       </div>
     </section>
 
@@ -161,8 +167,8 @@
         </label>
         <div class="dictionary-filter" aria-label="Фильтр словаря">
           <button class="active" type="button" data-dictionary-filter="all">Все</button>
-          <button type="button" data-dictionary-filter="ege">ЕГЭ</button>
-          <button type="button" data-dictionary-filter="extra">Сложные</button>
+          <button type="button" data-dictionary-filter="accents">Ударения</button>
+          <button type="button" data-dictionary-filter="paronyms">Паронимы</button>
         </div>
       </div>
 
@@ -176,8 +182,8 @@
               <path d="M8 10h6" />
             </svg>
           </span>
-          <strong>Найди слово</strong>
-          <span>Введи часть слова, чтобы увидеть правильное ударение и подсказки для сложных слов.</span>
+          <strong>Найди слово или пару</strong>
+          <span>Введи часть слова, чтобы увидеть правильное ударение или значения паронимов.</span>
         </div>
         <div class="popular-words">
           <p>Популярные слова</p>
@@ -196,12 +202,94 @@
       <div class="dictionary-results" id="dictionaryResults" hidden></div>
     </section>
 
-    <section class="screen screen-favorites" data-screen="favorites" hidden>
-      <div class="favorites-header">
-        <h1>Избранное</h1>
-        <p id="favoritesSummary">0 слов сохранено</p>
-        <button class="start-button favorites-start" id="startFavoritesButton" type="button">Тренировать избранное</button>
+    <section class="screen screen-favorites screen-practice" data-screen="favorites" hidden>
+      <div class="favorites-header practice-header">
+        <h1>Практика</h1>
+        <p id="favoritesSummary">0 сохранено</p>
       </div>
+
+      <div class="practice-direction-select" id="practiceDirectionSelect">
+        <button class="practice-direction-trigger" id="practiceDirectionTrigger" type="button" aria-expanded="false">
+          <span class="practice-direction-icon" id="practiceCurrentIcon" aria-hidden="true"></span>
+          <span class="practice-direction-copy">
+            <span class="practice-direction-kicker">Направление</span>
+            <strong id="practiceCurrentSection">Ударения</strong>
+            <small id="practiceCurrentMeta">0 ошибок • 0 избранного</small>
+          </span>
+          <span class="practice-direction-count" id="practiceCurrentCount">0</span>
+          <span class="practice-direction-arrow" aria-hidden="true">⌄</span>
+        </button>
+
+        <div class="practice-direction-menu" id="practiceDirectionMenu" aria-hidden="true">
+          <button class="practice-direction-option active" type="button" data-practice-section="accents">
+            <span class="practice-direction-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M6.5 4.5h8.2L18 7.8v11.7H6.5v-15Z" />
+                <path d="M14.5 4.5v3.5H18" />
+                <path d="M9 12h6" />
+                <path d="m9 16 1.4 1.4L14 13.8" />
+              </svg>
+            </span>
+            <span class="practice-direction-copy">
+              <strong>Ударения</strong>
+              <small id="practiceAccentMeta">0 ошибок • 0 избранного</small>
+            </span>
+            <span class="practice-direction-count" id="practiceAccentCount">0</span>
+          </button>
+
+          <button class="practice-direction-option" type="button" data-practice-section="paronyms">
+            <span class="practice-direction-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M5.5 6.5h6.2a3.8 3.8 0 0 1 0 7.6H5.5V6.5Z" />
+                <path d="M8 10.3h4" />
+                <path d="M18.5 7.2v9.6" />
+                <path d="M15.5 10.2 18.5 7.2l3 3" />
+                <path d="M15.5 13.8l3 3 3-3" />
+              </svg>
+            </span>
+            <span class="practice-direction-copy">
+              <strong>Паронимы</strong>
+              <small id="practiceParonymMeta">0 ошибок • 0 избранного</small>
+            </span>
+            <span class="practice-direction-count" id="practiceParonymCount">0</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="practice-panel">
+        <div class="practice-control-group">
+          <p>Набор</p>
+          <div class="practice-choice-grid practice-source-grid" aria-label="Набор для практики">
+            <button class="practice-choice active" type="button" data-practice-source="mistakes">
+              <strong>Ошибки</strong>
+              <small id="practiceMistakesCount">0</small>
+            </button>
+            <button class="practice-choice" type="button" data-practice-source="favorites">
+              <strong>Избранное</strong>
+              <small id="practiceFavoritesCount">0</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="practice-control-group" id="practiceFormatWrap" hidden>
+          <p>Формат</p>
+          <div class="practice-choice-grid practice-format-grid" aria-label="Формат паронимов">
+            <button class="practice-choice active" type="button" data-practice-format="cloze">
+              <strong>Вставить слово</strong>
+              <small>Пропуск</small>
+            </button>
+            <button class="practice-choice" type="button" data-practice-format="meaning">
+              <strong>Понять значение</strong>
+              <small>Смысл</small>
+            </button>
+          </div>
+        </div>
+
+        <button class="start-button favorites-start practice-start" id="startFavoritesButton" type="button">Начать практику</button>
+        <p class="practice-plan" id="practicePlan"></p>
+      </div>
+
+      <p class="favorites-group-title practice-list-title" id="practiceListTitle">Список</p>
       <div class="favorites-results" id="favoritesResults"></div>
     </section>
 
@@ -249,7 +337,7 @@
           <path d="m12 7.1 1.15 2.33 2.57.37-1.86 1.82.44 2.56L12 12.96l-2.3 1.22.44-2.56L8.28 9.8l2.57-.37L12 7.1Z" />
         </svg>
       </span>
-      <span>Избранное</span>
+      <span>Практика</span>
     </button>
     <button class="tab-item" type="button" data-tab="dictionary">
       <span class="tab-icon" aria-hidden="true">
@@ -265,7 +353,8 @@
   </nav>
 
   <script src="data/words.js?v=54"></script>
-  <script src="app.js?v=54"></script>
+  <script src="data/paronyms.js?v=7"></script>
+  <script src="app.js?v=67"></script>
   <script async src="https://telegram.org/js/telegram-web-app.js" onload="window.initTelegramWebApp?.()"></script>
 </body>
 </html>
